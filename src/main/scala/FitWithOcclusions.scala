@@ -11,11 +11,11 @@ import java.lang.management.ManagementFactory
 import java.lang.management.ThreadMXBean
 
 
-object FitWithOcclusions {
+object FitWithOcclusions extends App{
 
 
 
-  def main(args: Array[String]): Unit = {
+  override def main(args: Array[String]): Unit = {
     val timestamp_start_overall: Long = System.currentTimeMillis
     val timestamp_start_overall_CPU: Long = getCpuTime
 
@@ -47,43 +47,55 @@ object FitWithOcclusions {
   }
 
   def fitSingle(model: String, debug: Boolean, fitSteps: Int = 1000, method:String, bw_pl:BufferedWriter, bw_tl:BufferedWriter, occlusion: Boolean = false): Unit ={
-    for (i <- 0 to 9) {
-      val timestamp_start_wallClock: Long = System.currentTimeMillis
-      val timestamp_start_CPU: Long = getCpuTime
-      scalismo.initialize()
-      val full_path_to_source_image = "data_in/test" + i + ".png"
-      val full_path_to_source_LMfile = "data_in/test" + i + ".tlms"
-      val targetFile = new File(full_path_to_source_image)
-      val target = PixelImageIO.read[RGBA](targetFile).get
-      val modelFace12 = MoMoIO.read(new File(model)).get
+    for(i <- 0 to 9) {
+    //(0 until 10).par.foreach( i =>{
+    //try{
+        // ATTENTION: When using "x until y" x is inclusive, y is exclusive
+        val timestamp_start_wallClock: Long = System.currentTimeMillis
+        val timestamp_start_CPU: Long = getCpuTime
+        scalismo.initialize()
+        val full_path_to_source_image = "data_in/test" + i + ".png"
+        val full_path_to_source_LMfile = "data_in/test" + i + ".tlms"
+        val targetFile = new File(full_path_to_source_image)
+        val target = PixelImageIO.read[RGBA](targetFile).get
+        val modelFace12 = MoMoIO.read(new File(model)).get
 
-      println(s"start fitting target $target")
-      val targetLMList = TLMSLandmarksIO.read2D(new File(full_path_to_source_LMfile)).get
+        println(s"start fitting target $target")
+        val targetLMList = TLMSLandmarksIO.read2D(new File(full_path_to_source_LMfile)).get
 
-      val rpsFile = new File("data_out", targetFile.getName.replace(".png", s"_${method}.rps"))
-      val maskFile = new File("data_out", targetFile.getName.replace(".png", s"_mask_${method}_.png"))
-      val fitFile = new File("data_out", targetFile.getName.replace(".png", s"_fit_${method}.png"))
-      val overlayFile = new File("data_out", targetFile.getName.replace(".png", s"_overlay_${method}.png"))
+        val rpsFile = new File("data_out", targetFile.getName.replace(".png", s"_${method}.rps"))
+        val maskFile = new File("data_out", targetFile.getName.replace(".png", s"_mask_${method}_.png"))
+        val fitFile = new File("data_out", targetFile.getName.replace(".png", s"_fit_${method}.png"))
+        val overlayFile = new File("data_out", targetFile.getName.replace(".png", s"_overlay_${method}.png"))
 
-      val (rps, mask) = Fitting.fitWithOcclusions(targetFile.getName, target, targetLMList, modelFace12, fitSteps, debug, Some(rpsFile.toString), Some(maskFile.toString), Some(overlayFile.toString), method, i, bw_pl)
+        val (rps, mask) = Fitting.fitWithOcclusions(targetFile.getName, target, targetLMList, modelFace12, fitSteps, debug, Some(rpsFile.toString), Some(maskFile.toString), Some(overlayFile.toString), method, i, bw_pl)
 
-      RenderParameterIO.write(rps, rpsFile).get
-      PixelImageIO.write(mask.map(RGB(_)), maskFile)
+        RenderParameterIO.write(rps, rpsFile).get
+        PixelImageIO.write(mask.map(RGB(_)), maskFile)
 
-      val renderingFit = MoMoRenderer(modelFace12).renderImage(rps)
-      PixelImageIO.write(renderingFit, fitFile)
+        val renderingFit = MoMoRenderer(modelFace12).renderImage(rps)
+        PixelImageIO.write(renderingFit, fitFile)
 
-      val fitOverlay = PixelImageOperations.alphaBlending(target.map {
-        _.toRGB
-      }, renderingFit)
-      PixelImageIO.write(fitOverlay, overlayFile)
+        val fitOverlay = PixelImageOperations.alphaBlending(target.map {
+          _.toRGB
+        }, renderingFit)
+        PixelImageIO.write(fitOverlay, overlayFile)
 
-      val timestamp_end_wallClock: Long = System.currentTimeMillis
-      val elapsed_time_wallCLock:Float = (((timestamp_end_wallClock-timestamp_start_wallClock).toFloat/1000)*10).toInt/10F
-      val timestamp_end_CPU: Long = getCpuTime
-      val elapsed_time_CPU:Float = (((timestamp_end_CPU-timestamp_start_CPU).toFloat/1000000000)*10).toInt/10F
-      bw_tl.write(s"test${i}_${method}_wallClock: ${elapsed_time_wallCLock}\ntest${i}_${method}_CPU: ${elapsed_time_CPU}\n")
-    }
+        val timestamp_end_wallClock: Long = System.currentTimeMillis
+        val elapsed_time_wallCLock: Float = (((timestamp_end_wallClock - timestamp_start_wallClock).toFloat / 1000) * 10).toInt / 10F
+        val timestamp_end_CPU: Long = getCpuTime
+        val elapsed_time_CPU: Float = (((timestamp_end_CPU - timestamp_start_CPU).toFloat / 1000000000) * 10).toInt / 10F
+        bw_tl.write(s"test${i}_${method}_wallClock: ${elapsed_time_wallCLock}\ntest${i}_${method}_CPU: ${elapsed_time_CPU}\n")
+      }
+//      catch{
+//        case e: Throwable =>
+//          println(s"Something went wrong with test${i}")
+//          println(s"${e.getMessage}")
+//          println(s"${e.getStackTrace}")
+//          e.printStackTrace()
+//      }
+//      })
+    //}
   }
 
   def getCpuTime:Long = {

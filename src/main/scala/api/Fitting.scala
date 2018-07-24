@@ -307,6 +307,18 @@ object Fitting {
       return_mask
     }
 
+    def saveSegmentation(img:PixelImage[Int],filename:String):Unit = {
+      val save_file = new File(s"segmentations/" + filename)
+      PixelImageIO.write(img.map(RGB(_)), save_file)
+    }
+
+    def getDummyMask(target:PixelImage[RGBA]):PixelImage[Int] = {
+      val return_mask = PixelImage(target.width, target.height, (x,y) => {
+          1 // white
+      })
+      return_mask
+    }
+
     var current:(RenderParameter,PixelImage[Int]) = null
     if(method == "FCN") {
       current = (initLMSamples(initLMSamples.length - 1), loadImage(filename.replace(".png", "_FCN.png")))
@@ -315,15 +327,16 @@ object Fitting {
     }else if (method == "EGGER"){
       current = imageFitter.iterator(robust, labeledPrintLogger).take(1000).toIndexedSeq.last // In the original version, this was named "first1000"
     }else if (method == "DUMMY"){
-      current = (initLMSamples(initLMSamples.length - 1), loadImage("X_DUMMY.png"))
+      current = (initLMSamples(initLMSamples.length - 1), getDummyMask(targetImg))
     }
 
     var i = 0
     var numberOfSamples = fitSteps
 
     val momo = current._1.momo
-    val momoNew = momo.withNumberOfCoefficients(100,100,50)
+    val momoNew = momo.withNumberOfCoefficients(model.neutralModel.shape.rank,model.neutralModel.color.rank,model.expressionModel.get.expression.rank)
     current = (current._1.withMoMo(momoNew), current._2)
+
     var initial_posterior: Double = 0
     while (i < 20) {
       println(s"iteration ${i+1}")
@@ -338,25 +351,27 @@ object Fitting {
       // fit and update state
       current = imageFitter.iterator(current, labeledPrintLogger).take(numberOfSamples).toIndexedSeq.last
       // the above Line takes 99% of the execution time !!!
+
+      saveSegmentation(current._2,s"test${b}_${method}_${i}.png")
+
+
       if (i == 0){
         initial_posterior = imageFitter.best_posterior
       }
       bw_pl.write(s"test${b}_${method}_iteration${i}: ${imageFitter.best_posterior-initial_posterior}\n")
 
 
-      if ( i == 10) {
-        val momo = current._1.momo
-        val momoNew = momo.withNumberOfCoefficients(model.neutralModel.shape.rank,model.neutralModel.color.rank,model.expressionModel.get.expression.rank)
-        current = (current._1.withMoMo(momoNew), current._2)
-        numberOfSamples *= 2
-      }
-
       println(s"${i+1} fitted")
 
       /** Overlay-renderer */
       val renderingFit = MoMoRenderer(model).renderImage(current._1)
-      val fitOverlay = PixelImageOperations.alphaBlending(targetImg.map{_.toRGB}, renderingFit)
-      PixelImageIO.write(fitOverlay, new File(overlayFile.get))
+      //val fitOverlay = PixelImageOperations.alphaBlending(targetImg.map{_.toRGB}, renderingFit)
+      //PixelImageIO.write(fitOverlay, new File(overlayFile.get))
+
+
+      val fit_file = new File(s"fits/test${b}_${method}_${i}.png")
+      PixelImageIO.write(renderingFit, fit_file).get
+
 
       val rps_file = new File(s"rps/test${b}_${method}_" + i + ".rps")
       RenderParameterIO.write(current._1, rps_file).get
