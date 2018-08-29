@@ -47,7 +47,7 @@ object FitWithOcclusions extends App{
   }
 
   def fitSingle(model: String, debug: Boolean, fitSteps: Int = 1000, method:String, bw_pl:BufferedWriter, bw_tl:BufferedWriter, occlusion: Boolean = false): Unit ={
-    for(i <- 0 to 9) {
+    for(i <- 0 to 1) {
     //(0 until 10).par.foreach( i =>{
     //try{
         // ATTENTION: When using "x until y" x is inclusive, y is exclusive
