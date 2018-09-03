@@ -1,1 +1,0 @@
-Replace this file with the content of the "data_out" folder of the Fitting Process
